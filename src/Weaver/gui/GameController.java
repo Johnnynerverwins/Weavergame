@@ -2,87 +2,163 @@ package Weaver.gui;
 
 import Weaver.model.Model;
 
-import java.util.*;
+import javax.swing.*;
+import java.awt.*;
+import java.util.Observable;
+import java.util.Observer;
 
 /**
- * Controller for handling user input and game actions in the GUI.
- * Receives input from the GameView and updates the Model accordingly.
+ * View component of the Weaver game GUI.
+ * Displays the game interface and observes the Model for updates.
  */
-public class GameController {
+public class GameView extends JFrame implements Observer {
     private final Model model;
-    private final GameView view;
+    private GameController controller;
 
-    public GameController(Model model, GameView view) {
+    private JLabel startLabel;
+    private JLabel targetLabel;
+    private JTextField inputField;
+    private JPanel pathPanel;
+
+    private JButton resetButton;
+    private JButton newGameButton;
+    private JButton showSolutionButton;
+
+    private JCheckBox errorBox;
+    private JCheckBox randomBox;
+
+    public GameView(Model model) {
         this.model = model;
-        this.view = view;
+        model.addObserver(this);
+        initUI();
     }
 
-    /**
-     * Handles user word input from the input field.
-     * @param word the word entered by the user
-     */
-    public void handleInput(String word) {
-        word = word.trim().toLowerCase();
+    public void setController(GameController controller) {
+        this.controller = controller;
+    }
 
-        if (!model.makeMove(word)) {
-            if (model.isShowErrorIfInvalid()) {
-                System.out.println("Invalid move: either not in dictionary or not one letter different.");
+    private void initUI() {
+        setTitle("Weaver Game GUI");
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Top Panel: Start and Target Words
+        JPanel topPanel = new JPanel();
+        startLabel = new JLabel("Start: ----");
+        targetLabel = new JLabel("Target: ----");
+        topPanel.add(startLabel);
+        topPanel.add(targetLabel);
+        add(topPanel, BorderLayout.NORTH);
+
+        // Center Panel: Tile-based Path Panel
+        pathPanel = new JPanel();
+        pathPanel.setLayout(new BoxLayout(pathPanel, BoxLayout.Y_AXIS));
+        JScrollPane scrollPane = new JScrollPane(pathPanel);
+        add(scrollPane, BorderLayout.CENTER);
+
+        // Virtual Keyboard Panel
+        JPanel keyboardPanel = new JPanel(new GridLayout(4, 7));
+        String keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (char c : keys.toCharArray()) {
+            JButton keyButton = new JButton(String.valueOf(c));
+            keyButton.addActionListener(e -> inputField.setText(inputField.getText() + c));
+            keyboardPanel.add(keyButton);
+        }
+        JButton backspace = new JButton("←");
+        backspace.addActionListener(e -> {
+            String text = inputField.getText();
+            if (!text.isEmpty()) {
+                inputField.setText(text.substring(0, text.length() - 1));
             }
-            return;
-        }
+        });
+        JButton enter = new JButton("⏎");
+        enter.addActionListener(e -> {
+            if (controller != null) controller.handleInput(inputField.getText());
+        });
+        keyboardPanel.add(backspace);
+        keyboardPanel.add(enter);
+        add(keyboardPanel, BorderLayout.EAST);
 
-        if (model.isWinningWord(word)) {
-            view.showWinDialog();
-        }
+        // Bottom Panel: Control Buttons
+        JPanel bottomPanel = new JPanel();
+
+        inputField = new JTextField(10);
+        inputField.addActionListener(e -> {
+            if (controller != null) controller.handleInput(inputField.getText());
+        });
+
+        resetButton = new JButton("Reset");
+        resetButton.addActionListener(e -> {
+            if (controller != null) controller.handleReset();
+        });
+
+        newGameButton = new JButton("New Game");
+        newGameButton.addActionListener(e -> {
+            if (controller != null) controller.handleNewGame();
+        });
+
+        showSolutionButton = new JButton("Show Path");
+        showSolutionButton.addActionListener(e -> {
+            if (controller != null) controller.showSolutionPath();
+        });
+
+        errorBox = new JCheckBox("Show Error");
+        errorBox.setSelected(true);
+        errorBox.addActionListener(e -> model.setShowErrorIfInvalid(errorBox.isSelected()));
+
+        randomBox = new JCheckBox("Random Start/Target");
+        randomBox.addActionListener(e -> model.setRandomStartAndTarget(randomBox.isSelected()));
+
+        bottomPanel.add(inputField);
+        bottomPanel.add(resetButton);
+        bottomPanel.add(newGameButton);
+        bottomPanel.add(showSolutionButton);
+        bottomPanel.add(errorBox);
+        bottomPanel.add(randomBox);
+
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        setVisible(true);
     }
 
-    /**
-     * Resets the game by clearing all progress and retaining start/target.
-     */
-    public void handleReset() {
-        model.resetGame();
-    }
+    @Override
+    public void update(Observable o, Object arg) {
+        startLabel.setText("Start: " + model.getStartWord());
+        targetLabel.setText("Target: " + model.getTargetWord());
 
-    /**
-     * Starts a new game: either random or fixed based on flag.
-     */
-    public void handleNewGame() {
-        if (model.isRandomStartAndTarget()) {
-            // Try generating reachable word pairs
-            for (int i = 0; i < 10; i++) { // Try up to 10 times
-                model.setStartAndTarget("----", "----");
-                if (isReachable(model.getStartWord(), model.getTargetWord())) {
-                    return;
+        pathPanel.removeAll();
+        for (String word : model.getAttemptedPath()) {
+            JPanel row = new JPanel(new GridLayout(1, word.length()));
+            for (int i = 0; i < word.length(); i++) {
+                JLabel cell = new JLabel(String.valueOf(word.charAt(i)), SwingConstants.CENTER);
+                cell.setPreferredSize(new Dimension(40, 40));
+                cell.setOpaque(true);
+                cell.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+                if (model.getTargetWord().length() == word.length()
+                        && word.charAt(i) == model.getTargetWord().charAt(i)) {
+                    cell.setBackground(Color.GREEN);
+                } else {
+                    cell.setBackground(Color.WHITE);
                 }
+                row.add(cell);
             }
-            System.out.println("⚠️ No reachable word pair found after multiple attempts. Please try again.");
-        } else {
-            model.setStartAndTarget("cold", "warm");
+            pathPanel.add(row);
         }
+        pathPanel.revalidate();
+        pathPanel.repaint();
+        inputField.setText("");
     }
-    /**
-     * Checks whether a path exists from start to target via valid words.
-     */
-    private boolean isReachable(String start, String target) {
-        if (start == null || target == null) return false;
-        Set<String> visited = new HashSet<>();
-        Queue<String> queue = new LinkedList<>();
-        queue.add(start);
-        visited.add(start);
 
-        while (!queue.isEmpty()) {
-            String current = queue.poll();
-            if (current.equals(target)) return true;
+    public void showErrorDialog(String message) {
+        JOptionPane.showMessageDialog(this, message, "Invalid Move", JOptionPane.ERROR_MESSAGE);
+    }
 
-            for (String word : model.getDictionary()) {
-                if (!visited.contains(word) && model.isOneLetterDiff(current, word)) {
-                    visited.add(word);
-                    queue.add(word);
-                }
-            }
-        }
-        return false;
+    public void showWinDialog() {
+        JOptionPane.showMessageDialog(this, "🎉 You reached the target word!", "Victory", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public String getInputText() {
+        return inputField.getText();
     }
 }
-
-
