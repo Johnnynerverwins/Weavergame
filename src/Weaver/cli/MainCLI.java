@@ -2,8 +2,10 @@ package Weaver.cli;
 
 import Weaver.model.Model;
 
-import java.util.List;
-import java.util.Scanner;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
 
 /**
  * Command-line version of the Weaver game
@@ -11,7 +13,13 @@ import java.util.Scanner;
  */
 public class MainCLI {
     public static void main(String[] args) {
-        Model model = new Model();
+        Set<String> dictionary = loadDictionary("dictionary.txt");
+        if (dictionary.isEmpty()) {
+            System.out.println("⚠️ Failed to load dictionary file. Using fallback dictionary.");
+            dictionary.addAll(List.of("cold", "cord", "card", "ward", "warm"));
+        }
+
+        Model model = new Model(dictionary);
 
         // Set fixed words or random based on flag
         model.setRandomStartAndTarget(false); // for demo: set to false
@@ -50,5 +58,21 @@ public class MainCLI {
         }
 
         scanner.close();
+    }
+
+    private static Set<String> loadDictionary(String filename) {
+        Set<String> words = new HashSet<>();
+        try {
+            List<String> lines = Files.readAllLines(Paths.get(filename));
+            for (String line : lines) {
+                String cleaned = line.trim().toLowerCase();
+                if (cleaned.matches("[a-zA-Z]{4}")) {
+                    words.add(cleaned);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading dictionary: " + e.getMessage());
+        }
+        return words;
     }
 }

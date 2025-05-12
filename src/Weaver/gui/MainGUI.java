@@ -3,31 +3,45 @@ package Weaver.gui;
 import Weaver.model.Model;
 
 import javax.swing.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-
-import Weaver.model.Model;
-
-import javax.swing.*;
-
-/**
- * Main entry`` point for launching the GUI version of the Weaver game.
- * Connects Model, View, and Controller components.
- */
 public class MainGUI {
     public static void main(String[] args) {
-        // Run GUI code on the Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
-            // Step 1: Create the Model
-            Model model = new Model();
+            Set<String> dictionary = loadDictionary("dictionary.txt");
+            if (dictionary.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "⚠️ Could not load dictionary. Using fallback.", "Warning", JOptionPane.WARNING_MESSAGE);
+                dictionary.add("cold");
+                dictionary.add("cord");
+                dictionary.add("card");
+                dictionary.add("ward");
+                dictionary.add("warm");
+            }
 
-            // Step 2: Create the View and pass the Model into it
-            GameView view = new GameView(model); // View registers itself as an observer
-
-            // Step 3: Create the Controller and pass both Model and View into it
+            Model model = new Model(dictionary);
+            GameView view = new GameView(model);
             GameController controller = new GameController(model, view);
-
-            // Step 4: Let the View know which controller it is working with
-            view.setController(controller);
         });
+    }
+
+    private static Set<String> loadDictionary(String filename) {
+        Set<String> words = new HashSet<>();
+        try {
+            List<String> lines = Files.readAllLines(Paths.get(filename));
+            for (String line : lines) {
+                String cleaned = line.trim().toLowerCase();
+                if (cleaned.matches("[a-zA-Z]{4}")) {
+                    words.add(cleaned);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Could not read dictionary file: " + e.getMessage());
+        }
+        return words;
     }
 }

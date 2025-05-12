@@ -3,162 +3,50 @@ package Weaver.gui;
 import Weaver.model.Model;
 
 import javax.swing.*;
-import java.awt.*;
-import java.util.Observable;
-import java.util.Observer;
+import java.util.List;
 
-/**
- * View component of the Weaver game GUI.
- * Displays the game interface and observes the Model for updates.
- */
-public class GameView extends JFrame implements Observer {
+public class GameController {
     private final Model model;
-    private GameController controller;
+    private final GameView view;
 
-    private JLabel startLabel;
-    private JLabel targetLabel;
-    private JTextField inputField;
-    private JPanel pathPanel;
-
-    private JButton resetButton;
-    private JButton newGameButton;
-    private JButton showSolutionButton;
-
-    private JCheckBox errorBox;
-    private JCheckBox randomBox;
-
-    public GameView(Model model) {
+    public GameController(Model model, GameView view) {
         this.model = model;
-        model.addObserver(this);
-        initUI();
+        this.view = view;
+        this.view.setController(this); // 连接 Controller 和 View
     }
 
-    public void setController(GameController controller) {
-        this.controller = controller;
-    }
-
-    private void initUI() {
-        setTitle("Weaver Game GUI");
-        setSize(800, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-
-        // Top Panel: Start and Target Words
-        JPanel topPanel = new JPanel();
-        startLabel = new JLabel("Start: ----");
-        targetLabel = new JLabel("Target: ----");
-        topPanel.add(startLabel);
-        topPanel.add(targetLabel);
-        add(topPanel, BorderLayout.NORTH);
-
-        // Center Panel: Tile-based Path Panel
-        pathPanel = new JPanel();
-        pathPanel.setLayout(new BoxLayout(pathPanel, BoxLayout.Y_AXIS));
-        JScrollPane scrollPane = new JScrollPane(pathPanel);
-        add(scrollPane, BorderLayout.CENTER);
-
-        // Virtual Keyboard Panel
-        JPanel keyboardPanel = new JPanel(new GridLayout(4, 7));
-        String keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for (char c : keys.toCharArray()) {
-            JButton keyButton = new JButton(String.valueOf(c));
-            keyButton.addActionListener(e -> inputField.setText(inputField.getText() + c));
-            keyboardPanel.add(keyButton);
-        }
-        JButton backspace = new JButton("←");
-        backspace.addActionListener(e -> {
-            String text = inputField.getText();
-            if (!text.isEmpty()) {
-                inputField.setText(text.substring(0, text.length() - 1));
+    public void handleInput(String word) {
+        word = word.trim().toLowerCase();
+        if (!model.makeMove(word)) {
+            if (model.isShowErrorIfInvalid()) {
+                view.showErrorDialog("Invalid word. Either not in dictionary or not one letter different.");
             }
-        });
-        JButton enter = new JButton("⏎");
-        enter.addActionListener(e -> {
-            if (controller != null) controller.handleInput(inputField.getText());
-        });
-        keyboardPanel.add(backspace);
-        keyboardPanel.add(enter);
-        add(keyboardPanel, BorderLayout.EAST);
-
-        // Bottom Panel: Control Buttons
-        JPanel bottomPanel = new JPanel();
-
-        inputField = new JTextField(10);
-        inputField.addActionListener(e -> {
-            if (controller != null) controller.handleInput(inputField.getText());
-        });
-
-        resetButton = new JButton("Reset");
-        resetButton.addActionListener(e -> {
-            if (controller != null) controller.handleReset();
-        });
-
-        newGameButton = new JButton("New Game");
-        newGameButton.addActionListener(e -> {
-            if (controller != null) controller.handleNewGame();
-        });
-
-        showSolutionButton = new JButton("Show Path");
-        showSolutionButton.addActionListener(e -> {
-            if (controller != null) controller.showSolutionPath();
-        });
-
-        errorBox = new JCheckBox("Show Error");
-        errorBox.setSelected(true);
-        errorBox.addActionListener(e -> model.setShowErrorIfInvalid(errorBox.isSelected()));
-
-        randomBox = new JCheckBox("Random Start/Target");
-        randomBox.addActionListener(e -> model.setRandomStartAndTarget(randomBox.isSelected()));
-
-        bottomPanel.add(inputField);
-        bottomPanel.add(resetButton);
-        bottomPanel.add(newGameButton);
-        bottomPanel.add(showSolutionButton);
-        bottomPanel.add(errorBox);
-        bottomPanel.add(randomBox);
-
-        add(bottomPanel, BorderLayout.SOUTH);
-
-        setVisible(true);
-    }
-
-    @Override
-    public void update(Observable o, Object arg) {
-        startLabel.setText("Start: " + model.getStartWord());
-        targetLabel.setText("Target: " + model.getTargetWord());
-
-        pathPanel.removeAll();
-        for (String word : model.getAttemptedPath()) {
-            JPanel row = new JPanel(new GridLayout(1, word.length()));
-            for (int i = 0; i < word.length(); i++) {
-                JLabel cell = new JLabel(String.valueOf(word.charAt(i)), SwingConstants.CENTER);
-                cell.setPreferredSize(new Dimension(40, 40));
-                cell.setOpaque(true);
-                cell.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-                if (model.getTargetWord().length() == word.length()
-                        && word.charAt(i) == model.getTargetWord().charAt(i)) {
-                    cell.setBackground(Color.GREEN);
-                } else {
-                    cell.setBackground(Color.WHITE);
-                }
-                row.add(cell);
-            }
-            pathPanel.add(row);
+            return;
         }
-        pathPanel.revalidate();
-        pathPanel.repaint();
-        inputField.setText("");
+        if (model.isWinningWord(word)) {
+            view.showWinDialog();
+        }
     }
 
-    public void showErrorDialog(String message) {
-        JOptionPane.showMessageDialog(this, message, "Invalid Move", JOptionPane.ERROR_MESSAGE);
+    public void handleReset() {
+        model.resetGame();
     }
 
-    public void showWinDialog() {
-        JOptionPane.showMessageDialog(this, "🎉 You reached the target word!", "Victory", JOptionPane.INFORMATION_MESSAGE);
+    public void handleNewGame() {
+        model.setStartAndTarget(model.getStartWord(), model.getTargetWord());
+        model.resetGame();
     }
 
-    public String getInputText() {
-        return inputField.getText();
+    public void showSolutionPath() {
+        List<String> path = model.findSolutionPath();
+        if (path == null || path.isEmpty()) {
+            view.showErrorDialog("No solution path found.");
+        } else {
+            StringBuilder sb = new StringBuilder("Solution Path:\n");
+            for (String word : path) {
+                sb.append(word).append("\n");
+            }
+            JOptionPane.showMessageDialog(null, sb.toString(), "Solution Path", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 }

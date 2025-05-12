@@ -1,178 +1,155 @@
 package Weaver.model;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
-/**
- * The Model class implements the core logic for the Weaver word game.
- * It is independent of any user interface and follows the Observer pattern.
- *
- * @invariant All words (start, target, and intermediate) must be 4-letter words.
- */
 public class Model extends Observable {
-    private Set<String> dictionary;
     private String startWord;
     private String targetWord;
-    private List<String> attempts;
+    private List<String> attemptedPath;
+    private Set<String> dictionary;
+    private boolean showErrorIfInvalid;
+    private boolean showSolution;
+    private boolean useRandomStartAndTarget = false;
 
-    // Flags (settable via GUI or code)
-    private boolean showErrorIfInvalid = true;
-    private boolean showPath = false;
-    private boolean randomStartAndTarget = false;
+    public Model(Set<String> dictionary) {
+        this.dictionary = dictionary;
+        this.attemptedPath = new ArrayList<>();
+        this.showErrorIfInvalid = true;
+        this.showSolution = false;
+        this.startWord = "cold";
+        this.targetWord = "warm";
+        resetGame();
+    }
 
     public Model() {
-        dictionary = new HashSet<>();
-        attempts = new ArrayList<>();
-        loadDictionary("dictionary.txt");
+        this(new HashSet<>(List.of("cold", "cord", "card", "ward", "warm")));
     }
 
-    /**
-     * Loads the list of valid 4-letter words from a file into the dictionary set.
-     *
-     * @requires filePath != null
-     * @ensures All valid 4-letter words are loaded into the dictionary
-     */
-    public void loadDictionary(String filePath) {
-        assert filePath != null : "File path must not be null";
-        try {
-            List<String> lines = Files.readAllLines(Paths.get(filePath));
-            for (String word : lines) {
-                word = word.trim().toLowerCase();
-                if (word.length() == 4) {
-                    dictionary.add(word);
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Failed to load dictionary: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Sets the starting and target words for the game. Can be random if the flag is true.
-     *
-     * @requires start != null && target != null && start.length() == 4 && target.length() == 4
-     * @ensures Start and target words are set and previous attempts are cleared
-     */
-    public void setStartAndTarget(String start, String target) {
-        assert start != null && target != null : "Start and target words must not be null";
-        assert start.length() == 4 && target.length() == 4 : "Words must be 4 letters long";
-
-        if (randomStartAndTarget) {
+    public void resetGame() {
+        if (useRandomStartAndTarget) {
             List<String> words = new ArrayList<>(dictionary);
             Random rand = new Random();
-            this.startWord = words.get(rand.nextInt(words.size()));
-            this.targetWord = words.get(rand.nextInt(words.size()));
-        } else {
-            this.startWord = start.toLowerCase();
-            this.targetWord = target.toLowerCase();
+            do {
+                startWord = words.get(rand.nextInt(words.size()));
+                targetWord = words.get(rand.nextInt(words.size()));
+            } while (startWord.equals(targetWord));
         }
-
-        attempts.clear();
+        attemptedPath.clear();
+        attemptedPath.add(startWord);
+        showSolution = false;
         setChanged();
         notifyObservers();
     }
 
-    /**
-     * Checks whether the given word is a valid dictionary word.
-     *
-     * @requires word != null
-     * @ensures Returns true if the word is in the dictionary
-     */
-    public boolean isValidWord(String word) {
-        assert word != null : "Word must not be null";
-        return dictionary.contains(word.toLowerCase());
-    }
-
-    /**
-     * Checks whether the given word matches the target word (case-insensitive).
-     *
-     * @requires word != null
-     * @ensures Returns true if the word equals the target word
-     */
-    public boolean isWinningWord(String word) {
-        assert word != null : "Word must not be null";
-        return word.equalsIgnoreCase(targetWord);
-    }
-
-    /**
-     * Checks whether two words differ by exactly one letter.
-     *
-     * @requires from != null && to != null && from.length() == to.length()
-     * @ensures Returns true if words differ by exactly one letter
-     */
-    public boolean isOneLetterDiff(String from, String to) {
-        assert from != null && to != null : "Words must not be null";
-        assert from.length() == to.length() : "Words must be the same length";
-
-        int diff = 0;
-        for (int i = 0; i < from.length(); i++) {
-            if (from.charAt(i) != to.charAt(i)) {
-                diff++;
-            }
-        }
-        return diff == 1;
-    }
-
-    /**
-     * Records the move if the word is valid and differs from the previous word by one letter.
-     *
-     * @requires word != null && word.length() == 4
-     * @ensures If the move is valid, it is added to the attempt path and observers are notified
-     */
     public boolean makeMove(String word) {
-        assert word != null && word.length() == 4 : "Word must be 4 letters long";
-
-        String current = attempts.isEmpty() ? startWord : attempts.get(attempts.size() - 1);
-
-        if (!isValidWord(word) || !isOneLetterDiff(current, word)) {
-            return false;
-        }
-
-        attempts.add(word.toLowerCase());
+        if (!dictionary.contains(word)) return false;
+        String lastWord = attemptedPath.get(attemptedPath.size() - 1);
+        if (!isOneLetterDiff(lastWord, word)) return false;
+        attemptedPath.add(word);
         setChanged();
         notifyObservers();
         return true;
     }
 
-    /**
-     * Returns a copy of the list of attempted intermediate words.
-     *
-     * @ensures Returns the current path from start to last valid word
-     */
-    public List<String> getAttemptedPath() {
-        return new ArrayList<>(attempts);
+    public boolean isValidWord(String word) {
+        return dictionary.contains(word);
     }
 
-    /**
-     * Clears all previous attempts and resets the game state.
-     *
-     * @ensures The game is reset and observers are notified
-     */
-    public void resetGame() {
-        attempts.clear();
+    public boolean isWinningWord(String word) {
+        return targetWord.equals(word);
+    }
+
+    public boolean isOneLetterDiff(String a, String b) {
+        if (a.length() != b.length()) return false;
+        int diff = 0;
+        for (int i = 0; i < a.length(); i++) {
+            if (a.charAt(i) != b.charAt(i)) diff++;
+            if (diff > 1) return false;
+        }
+        return diff == 1;
+    }
+
+    public void setStartAndTarget(String start, String target) {
+        this.startWord = start;
+        this.targetWord = target;
+    }
+
+    public String getStartWord() {
+        return startWord;
+    }
+
+    public String getTargetWord() {
+        return targetWord;
+    }
+
+    public List<String> getAttemptedPath() {
+        return attemptedPath;
+    }
+
+    public boolean isShowErrorIfInvalid() {
+        return showErrorIfInvalid;
+    }
+
+    public void setShowErrorIfInvalid(boolean value) {
+        this.showErrorIfInvalid = value;
+    }
+
+    public void setShowPath(boolean value) {
+        this.showSolution = value;
         setChanged();
         notifyObservers();
     }
 
-    // === Flag setters/getters (used in GUI, optional in CLI) ===
+    public boolean isShowPath() {
+        return showSolution;
+    }
 
-    public void setShowErrorIfInvalid(boolean value) { this.showErrorIfInvalid = value; }
-    public boolean isShowErrorIfInvalid() { return showErrorIfInvalid; }
-
-    public void setShowPath(boolean value) { this.showPath = value; }
-    public boolean isShowPath() { return showPath; }
-
-    public void setRandomStartAndTarget(boolean value) { this.randomStartAndTarget = value; }
-    public boolean isRandomStartAndTarget() { return randomStartAndTarget; }
-
-    public String getStartWord() { return startWord; }
-
-    public String getTargetWord() { return targetWord; }
+    public boolean getShowSolution() {
+        return showSolution;
+    }
 
     public Set<String> getDictionary() {
         return dictionary;
     }
 
+    public void setDictionary(Set<String> dictionary) {
+        this.dictionary = dictionary;
+    }
+
+    public void setRandomStartAndTarget(boolean enabled) {
+        this.useRandomStartAndTarget = enabled;
+    }
+
+    public boolean isRandomStartAndTarget() {
+        return useRandomStartAndTarget;
+    }
+
+    public List<String> findSolutionPath() {
+        String start = getStartWord();
+        String target = getTargetWord();
+        Set<String> dict = getDictionary();
+
+        if (!dict.contains(start) || !dict.contains(target)) return null;
+
+        Queue<List<String>> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+        queue.add(List.of(start));
+        visited.add(start);
+
+        while (!queue.isEmpty()) {
+            List<String> path = queue.poll();
+            String last = path.get(path.size() - 1);
+            if (last.equals(target)) return path;
+
+            for (String word : dict) {
+                if (!visited.contains(word) && isOneLetterDiff(last, word)) {
+                    visited.add(word);
+                    List<String> newPath = new ArrayList<>(path);
+                    newPath.add(word);
+                    queue.add(newPath);
+                }
+            }
+        }
+        return null;
+    }
 }
