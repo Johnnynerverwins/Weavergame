@@ -58,28 +58,8 @@ public class GameView extends JFrame implements Observer {
         JScrollPane scrollPane = new JScrollPane(pathPanel);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Right Panel: Virtual Keyboard
-        JPanel keyboardPanel = new JPanel(new GridLayout(4, 7));
-        String keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for (char c : keys.toCharArray()) {
-            JButton keyButton = new JButton(String.valueOf(c));
-            keyButton.addActionListener(e -> inputField.setText(inputField.getText() + c));
-            keyboardPanel.add(keyButton);
-        }
-        JButton backspace = new JButton("←");
-        backspace.addActionListener(e -> {
-            String text = inputField.getText();
-            if (!text.isEmpty()) {
-                inputField.setText(text.substring(0, text.length() - 1));
-            }
-        });
-        JButton enter = new JButton("⏎");
-        enter.addActionListener(e -> {
-            if (controller != null) controller.handleInput(inputField.getText());
-        });
-        keyboardPanel.add(backspace);
-        keyboardPanel.add(enter);
-        add(keyboardPanel, BorderLayout.EAST);
+        // Bottom Panel Container
+        JPanel bottomContainer = new JPanel(new BorderLayout());
 
         // Bottom Panel: Controls
         JPanel bottomPanel = new JPanel();
@@ -117,7 +97,33 @@ public class GameView extends JFrame implements Observer {
         bottomPanel.add(errorBox);
         bottomPanel.add(randomBox);
 
-        add(bottomPanel, BorderLayout.SOUTH);
+        // Virtual Keyboard Panel
+        JPanel keyboardPanel = new JPanel(new GridLayout(4, 7));
+        String keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (char c : keys.toCharArray()) {
+            JButton keyButton = new JButton(String.valueOf(c));
+            keyButton.addActionListener(e -> inputField.setText(inputField.getText() + c));
+            keyboardPanel.add(keyButton);
+        }
+        JButton backspace = new JButton("←");
+        backspace.addActionListener(e -> {
+            String text = inputField.getText();
+            if (!text.isEmpty()) {
+                inputField.setText(text.substring(0, text.length() - 1));
+            }
+        });
+        JButton enter = new JButton("⏎");
+        enter.addActionListener(e -> {
+            if (controller != null) controller.handleInput(inputField.getText());
+        });
+        keyboardPanel.add(backspace);
+        keyboardPanel.add(enter);
+
+        // Add both to bottom container
+        bottomContainer.add(bottomPanel, BorderLayout.NORTH);
+        bottomContainer.add(keyboardPanel, BorderLayout.SOUTH);
+        add(bottomContainer, BorderLayout.SOUTH);
+
         setVisible(true);
     }
 
