@@ -52,10 +52,12 @@ public class GameView extends JFrame implements Observer {
         topPanel.add(targetLabel);
         add(topPanel, BorderLayout.NORTH);
 
-        // Center Panel: Tile Path Display
+        // Center Panel: Fixed Size Word Rows
         pathPanel = new JPanel();
         pathPanel.setLayout(new BoxLayout(pathPanel, BoxLayout.Y_AXIS));
         JScrollPane scrollPane = new JScrollPane(pathPanel);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setPreferredSize(new Dimension(400, 400));
         add(scrollPane, BorderLayout.CENTER);
 
         // Bottom Panel Container
@@ -137,9 +139,13 @@ public class GameView extends JFrame implements Observer {
 
         for (String word : wordsToDisplay) {
             JPanel row = new JPanel(new GridLayout(1, word.length()));
+            row.setMaximumSize(new Dimension(400, 50));
+            row.setPreferredSize(new Dimension(400, 50));
             for (int i = 0; i < word.length(); i++) {
                 JLabel cell = new JLabel(String.valueOf(word.charAt(i)), SwingConstants.CENTER);
-                cell.setPreferredSize(new Dimension(40, 40));
+                cell.setPreferredSize(new Dimension(50, 50));
+                cell.setMinimumSize(new Dimension(50, 50));
+                cell.setMaximumSize(new Dimension(50, 50));
                 cell.setOpaque(true);
                 cell.setBorder(BorderFactory.createLineBorder(Color.BLACK));
                 cell.setFont(new Font("Arial", Font.BOLD, 18));
